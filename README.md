@@ -59,7 +59,6 @@ Mechanism=swapfile
 
 [File]
 RamMultiplier=4
-MaxSizeMiB=2048
 EOF
 ```
 
