@@ -48,6 +48,23 @@ using Bookwork which I could not resolve.
 
 ##  Increase swapfile size for compilation
 
+### Raspberry Pi OS based on Trixe
+
+Using z-ram causes OOM, use the following command to disable z-ram and extend the swapfile:
+```
+sudo mkdir -p /etc/rpi/swap.conf.d/ && \
+sudo tee /etc/rpi/swap.conf.d/swap.conf > /dev/null <<'EOF'
+[Main]
+Mechanism=swapfile
+
+[File]
+RamMultiplier=4
+MaxSizeMiB=2048
+EOF
+```
+
+### Older Raspberry Pi OS releases
+
 Edit **/etc/dphys-swapfile** (e.g. `sudo vim /etc/dphys-swapfile`) and change
 the value of **CONF_SWAPSIZE** to 1024. You _might_ be able to get away with a
 smaller swap size but it's been reported that the build process stalls with a
