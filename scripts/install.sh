@@ -34,6 +34,7 @@ cmake --build . --config Release
 cd "$INSTALL_DIR"
 git clone https://github.com/vitoplantamura/OnnxStream.git
 cd OnnxStream
+git checkout f4d63f8d30b0e652446987d53286e2a0fcd5b070
 cd src
 mkdir build
 cd build
