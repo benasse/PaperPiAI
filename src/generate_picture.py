@@ -1,21 +1,47 @@
 import argparse
+import feedparser
 import json
 import os
 import random
+import re
 import shutil
 import subprocess
 
 
-def choose_prompt(filename: str):
+def choose_prompt(filename: str) -> str:
     prompts = []
     with open(filename) as file:
         prompts = json.load(file)
-    return ' '.join(random.choice(part) for part in prompts)
+    prompt = random.choice(prompts)
+    if re.match(r"^https?://", prompt):
+        print(f"[INFO] Detected RSS feed URL: {prompt}")
+        feed = feedparser.parse(prompt)
+
+        if not feed.entries:
+            raise ValueError(f"No entries found in RSS feed: {prompt}")
+
+        entry = random.choice(feed.entries)
+        title = entry.get("title", "").strip()
+
+        if not title:
+            raise ValueError(f"No valid title found in RSS feed: {prompt}")
+        prompt = title
+
+    return prompt
+
+
+
+def choose_style(filename: str) -> str:
+    styles = []
+    with open(filename) as file:
+        styles = json.load(file)
+    return random.choice(styles)
 
 
 parser = argparse.ArgumentParser(description="Generate a new random picture.")
 parser.add_argument("output_dir", help="Directory to save the output images")
 parser.add_argument("--prompts", default="prompts/flowers.json", help="The prompts file to use")
+parser.add_argument("--styles", default="prompts/styles.json", help="The prompts file to use")
 parser.add_argument("--prompt", default="", help="The prompt to use")
 parser.add_argument("--seed", default=random.randint(1, 10000), help="The seed to use")
 parser.add_argument("--steps", default=5, help="The number of steps to perform")
@@ -32,10 +58,12 @@ shared_file = 'output.png'
 prompt = args.prompt
 if prompt == '':
     prompt = choose_prompt(args.prompts)
+    prompt = prompt + " " + choose_style(args.styles)
+
 
 # Create a unique argument for the filename
 unique_arg = prompt.replace(' ', '_')[:64]
-unique_arg = f"{unique_arg}_seed_{args.seed}_steps_{args.steps}"
+unique_arg = f"{unique_arg}_seed_{args.seed}_steps_{args.steps}_size_{args.width}x{args.height}"
 fullpath = os.path.join(output_dir, f"{unique_arg}.png")
 
 # Construct the command
@@ -61,4 +89,4 @@ print("Command executed successfully.")
 
 shared_fullpath = os.path.join(output_dir, shared_file)
 shutil.copyfile(fullpath, shared_fullpath)
-print(f"Copied to {shared_fullpath}") 
+print(f"Copied to {shared_fullpath}")
