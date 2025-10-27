@@ -4,7 +4,7 @@ INSTALL_DIR="$PWD"
 echo Installing to "$INSTALL_DIR"
 
 sudo apt-get update
-sudo apt-get upgrade
+sudo apt-get -y upgrade
 sudo apt-get -y install tmux vim
 sudo apt-get -y install cmake
 sudo apt-get -y install python3-dev python3-venv python3-pip
