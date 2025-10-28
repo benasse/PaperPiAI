@@ -1,132 +1,83 @@
-# display_image.py
-#   Intelligently crop and scale supplied image
-#   and then display on e-ink display.
-
 import argparse
-import cv2
-from inky.auto import auto
-import numpy as np
 from PIL import Image
+from inky.auto import auto
+from inky import Inky_Impressions_7 as Inky
+import sys
+import os
 
-def load_image(image_path):
-    return cv2.imread(image_path)
+def main():
+    parser = argparse.ArgumentParser(
+        description="Display an image on the Inky Impression 7 display (auto-rotate if needed)."
+    )
+    parser.add_argument(
+        "image",
+        type=str,
+        help="Path to the image file to display"
+    )
+    parser.add_argument(
+        "-s", "--saturation",
+        type=float,
+        default=0.5,
+        help="Saturation level for the display (default: 0.5)"
+    )
+    parser.add_argument(
+        "--no-display",
+        action="store_true",
+        help="Do not send the image to the display (for testing)"
+    )
 
-def save_image(image_path, image):
-    cv2.imwrite(image_path, image)
+    args = parser.parse_args()
 
-def crop(image, disp_w, disp_h, intelligent=True):
-    # Intelligently resize and crop image to display proportions.
-    # Largest crop shifted towards maximum saliency. 
+    # --- Validate input ---
+    if not os.path.exists(args.image):
+        print(f"❌ Error: image file '{args.image}' not found.")
+        sys.exit(1)
 
-    img_h, img_w, img_c = image.shape
-    print(f"Input WxH: {img_w} x {img_h}")
+    # --- Load Inky display ---
+    try:
+        inky = Inky()
+    except Exception as e:
+        print(f"❌ Error initializing Inky display: {e}")
+        sys.exit(1)
 
-    img_aspect = img_w / img_h
-    disp_aspect = disp_w / disp_h
+    disp_w, disp_h = inky.resolution
+    print(f"🖥️ Loaded Inky display: {disp_w}x{disp_h}, saturation={args.saturation}")
 
-    print(f"Image aspect ratio {img_aspect} ({img_w} x {img_h})")
-    print(f"Display aspect ratio {disp_aspect} ({disp_w} x {disp_h})")
+    # --- Open and prepare image ---
+    try:
+        image = Image.open(args.image)
+    except Exception as e:
+        print(f"❌ Error loading image: {e}")
+        sys.exit(1)
 
-    if img_aspect < disp_aspect:
-        # scale width, crop height.
-        resize = (disp_w, int(disp_w / img_aspect))
+    img_w, img_h = image.size
+    print(f"📸 Original image size: {img_w}x{img_h}")
+
+    # --- Auto-detect orientation ---
+    img_is_portrait = img_h > img_w
+    disp_is_portrait = disp_h > disp_w
+
+    if img_is_portrait != disp_is_portrait:
+        print("↻ Rotating image 90° to match display orientation...")
+        image = image.rotate(90, Image.NEAREST, expand=True)
     else:
-        # scale height, crop width
-        resize = (int(disp_h * img_aspect), disp_h)
+        print("✅ Orientation already matches display.")
 
-    print(f"Resizing to {resize}")
-    image = cv2.resize(image, resize)
-    img_h, img_w, img_c = image.shape
+    # --- Resize to display resolution ---
+    image = image.resize(inky.resolution)
+    print(f"📏 Resized to {inky.resolution}")
 
-    # Cropping
-    x_off = int((img_w - disp_w) / 2)
-    y_off = int((img_h - disp_h) / 2)
-    assert x_off == 0 or y_off == 0, "My logic is broken"
-
-    if intelligent:
-
-        # Initialize OpenCV's static saliency spectral residual detector and
-        # compute the saliency map
-        saliency = cv2.saliency.StaticSaliencySpectralResidual_create()
-        (success, saliencyMap) = saliency.computeSaliency(image)
-        saliencyMap = (saliencyMap * 255).astype("uint8")
-
-        if not x_off:
-            # Cropping height
-            vert = np.max(saliencyMap, axis=1)
-            vert = np.convolve(vert, np.ones(64)/64, "same")
-             
-            sal_centre = int(np.argmax(vert))
-            img_centre = int(img_h / 2)
-            shift_y = max(min(sal_centre - img_centre, y_off), -y_off)
-            y_off += shift_y
-        else:
-            # Cropping width
-            horiz = np.max(saliencyMap, axis=0)
-            horiz  = np.convolve(horiz, np.ones(64)/64, "same")
-            sal_centre = int(np.argmax(horiz))
-            img_centre = int(img_w / 2)
-            shift_x = max(min(sal_centre - img_centre, x_off), -x_off)
-            x_off += shift_x
-
-    image = image[y_off:y_off + disp_h,
-                  x_off:x_off + disp_w]
-
-    img_h, img_w, img_c = image.shape
-    print(f"Cropped WxH: {img_w} x {img_h}")
-    return image
-
-def display(inky, image, saturation=1.0):
-    if image.shape[0] > image.shape[1]:
-        image = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    inky.set_image(Image.fromarray(image), saturation=saturation)
-    inky.show()
-
+    # --- Display or simulate ---
+    if not args.no_display:
+        try:
+            inky.set_image(image, saturation=args.saturation)
+            inky.show()
+            print("✅ Image successfully displayed on Inky Impression.")
+        except Exception as e:
+            print(f"❌ Error displaying image: {e}")
+            sys.exit(1)
+    else:
+        print("🧪 Display simulation mode: no output sent to Inky.")
 
 if __name__ == "__main__":
-
-    ap = argparse.ArgumentParser()
-    ap.add_argument("image", 
-        help="input image")
-    ap.add_argument("-o", "--output", default="",
-        help="name to save cropped display image if provided")
-    ap.add_argument("-p", "--portrait", action="store_true",
-                    default=False, help="Portrait orientation")
-    ap.add_argument("-c", "--centre_crop", action="store_true",
-                    default=False, help="Simple centre cropping")
-    ap.add_argument("-r", "--resize_only", action="store_true",
-                    default=False, help="Simply resize image to display ignoring aspect ratio")
-    ap.add_argument("-s", "--simulate_display", action="store_true",
-                    default=False, help="Do not interact with e-paper display to get resolution")
-    ap.add_argument("--width", default=800, help="The width of the display")
-    ap.add_argument("--height", default=480, help="The height of the display")
-    args = vars(ap.parse_args())
-
-    disp_w, disp_h = args["width"], args["height"]
-    simulate_display = args["simulate_display"]
-
-    # Get resolution from Inky
-    if not simulate_display:
-        inky = auto(ask_user=True, verbose=True)
-        disp_w, disp_h = inky.resolution
-
-    # Swap axes for portrait orientation
-    if args["portrait"]:
-        disp_w, disp_h = disp_h, disp_w
-
-    image = load_image(args["image"])
-    if args["resize_only"]:
-        print(f"Resizing to {disp_w}x{disp_h}")
-        image = cv2.resize(image, (disp_w, disp_h))
-    else:
-        image = crop(image, disp_w, disp_h, args["centre_crop"]==False)
-
-    if not simulate_display:
-        display(inky, image)
-
-    if args["output"]:
-        save_image(args["output"], image)
-
-
+    main()
