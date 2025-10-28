@@ -160,5 +160,5 @@ print(f"📝 Prompt written to: {txt_file}")
 
 # --- Copy shared output ---
 shared_path = os.path.join(args.output_dir, "output.png")
-shutil.copyfile(fullpath, shared_path)
+shutil.copyfile(shared_path, shared_path)
 print(f"📤 Copied to {shared_path}")
