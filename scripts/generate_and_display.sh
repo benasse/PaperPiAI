@@ -1,7 +1,7 @@
 #!/bin/sh
 # POSIX-safe script to generate a picture, display it, log everything, and reboot if successful
 # Recommended crontab:
-# 0 */6 * * * /root/PaperPiAI/scripts/generate_and_display.sh
+# 0 6,11,16,21 * * * /root/PaperPiAI/scripts/generate_and_display.sh
 
 PROJECT_DIR="/root/PaperPiAI"
 LOCKFILE="/tmp/generate_and_display.lock"
