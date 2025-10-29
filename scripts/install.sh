@@ -18,7 +18,7 @@ python3 -m venv venv
 
 python -m pip install opencv_contrib_python
 python -m pip install inky[rpi]==1.5.0
-python -m pip install pillow feedparser
+python -m pip install pillow feedparser requests python-dotenv
   
 # Following instructions taken directly from [OnnxStream repo](https://github.com/vitoplantamura/OnnxStream).
 
